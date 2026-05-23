@@ -163,25 +163,125 @@ end
 
 --- Seleciona uma conexão ativa usando vim.ui.select
 function M.select_connection(callback)
-  if #M.connections == 0 then
-    vim.notify("[GraphQL Explorer] Nenhuma conexão configurada. Adicione conexões no seu setup().", vim.log.levels.WARN)
-    return
-  end
-
   local options = {}
   for i, conn in ipairs(M.connections) do
     table.insert(options, string.format("%d: %s (%s)", i, conn.name, conn.url))
   end
+  table.insert(options, "+ Adicionar Conexão Customizada")
 
   vim.ui.select(options, {
     prompt = "Selecione a Conexão GraphQL ativa:",
   }, function(choice, idx)
     if choice then
+      if choice == "+ Adicionar Conexão Customizada" then
+        M.configure_custom_connection(callback)
+        return
+      end
       M.active_index = idx
       local conn = M.connections[idx]
       vim.notify(string.format("[GraphQL Explorer] Conexão ativa alterada para: %s", conn.name), vim.log.levels.INFO)
       
       -- Ao selecionar, sincroniza o LSP e baixa o schema se necessário
+      M.download_schema(conn, function(success)
+        if success and callback then
+          callback(conn)
+        end
+      end)
+    end
+  end)
+end
+
+--- Configura uma nova conexão customizada dinamicamente
+function M.configure_custom_connection(callback)
+  vim.ui.input({ prompt = "Endpoint URL: " }, function(url)
+    if not url or url == "" then
+      vim.notify("[GraphQL Explorer] Operação cancelada. Endpoint URL é obrigatório.", vim.log.levels.WARN)
+      return
+    end
+
+    vim.ui.input({ prompt = "Nome da Conexão (default: Custom Endpoint): " }, function(name)
+      name = (name and name ~= "") and name or "Custom Endpoint"
+      
+      vim.ui.input({ prompt = "Token de Autorização / Header (opcional, e.g. Bearer xyz): " }, function(token)
+        local headers = {}
+        if token and token ~= "" then
+          headers["Authorization"] = token
+        end
+
+        local conn = {
+          name = name,
+          url = url,
+          headers = headers
+        }
+
+        -- Adiciona ou atualiza
+        local existing_idx = nil
+        for i, c in ipairs(M.connections) do
+          if c.name == name then
+            existing_idx = i
+            break
+          end
+        end
+
+        if existing_idx then
+          M.connections[existing_idx] = conn
+          M.active_index = existing_idx
+        else
+          table.insert(M.connections, conn)
+          M.active_index = #M.connections
+        end
+
+        vim.notify(string.format("[GraphQL Explorer] Conexão '%s' configurada!", name), vim.log.levels.INFO)
+        
+        M.download_schema(conn, function(success)
+          if success and callback then
+            callback(conn)
+          end
+        end)
+      end)
+    end)
+  end)
+end
+
+--- Modifica a URL do endpoint ativo dinamicamente
+function M.set_active_endpoint(callback)
+  local conn = M.get_active()
+  if not conn then
+    vim.notify("[GraphQL Explorer] Nenhuma conexão ativa selecionada. Use :GraphQLSelectConnection primeiro.", vim.log.levels.WARN)
+    return
+  end
+
+  vim.ui.input({ prompt = "Alterar Endpoint URL: ", default = conn.url }, function(input)
+    if input and input ~= "" then
+      conn.url = input
+      vim.notify(string.format("[GraphQL Explorer] URL de '%s' atualizada para: %s", conn.name, conn.url), vim.log.levels.INFO)
+      M.download_schema(conn, function(success)
+        if success and callback then
+          callback(conn)
+        end
+      end)
+    end
+  end)
+end
+
+--- Modifica o token de autorização do endpoint ativo dinamicamente
+function M.set_active_auth(callback)
+  local conn = M.get_active()
+  if not conn then
+    vim.notify("[GraphQL Explorer] Nenhuma conexão ativa selecionada. Use :GraphQLSelectConnection primeiro.", vim.log.levels.WARN)
+    return
+  end
+
+  local default_auth = conn.headers and conn.headers["Authorization"] or ""
+  vim.ui.input({ prompt = "Alterar Header Authorization (Bearer <token>): ", default = default_auth }, function(input)
+    if input then
+      conn.headers = conn.headers or {}
+      if input == "" then
+        conn.headers["Authorization"] = nil
+      else
+        conn.headers["Authorization"] = input
+      end
+      vim.notify(string.format("[GraphQL Explorer] Authorization de '%s' atualizado!", conn.name), vim.log.levels.INFO)
       M.download_schema(conn, function(success)
         if success and callback then
           callback(conn)

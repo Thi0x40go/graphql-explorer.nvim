@@ -6,6 +6,8 @@ M.buf = nil
 M.win = nil
 M.schema = nil
 M.types_by_name = {}
+M.original_buf = nil
+M.float_win = nil
 
 -- Estado de expansão: { [category_name] = true/false, [type_name] = true/false }
 M.state = {
@@ -20,6 +22,36 @@ M.state = {
 
 -- Mapeia cada linha do buffer de volta para uma tabela de metadados
 M.lines_meta = {}
+
+-- Arte em Pixel Art de Boas-Vindas
+local WELCOME_ART = {
+  "       .       .        .       .       .      ",
+  "   .       .       .        .       .       .  ",
+  "                 ●                             ",
+  "                / \\                            ",
+  "               /   \\                           ",
+  "        ●─────●     ●─────●                    ",
+  "         \\   / \\   / \\   /                     ",
+  "          \\ /   \\ /   \\ /                      ",
+  "           ●     ●     ●                       ",
+  "          / \\   / \\   / \\                      ",
+  "         /   \\ /   \\ /   \\                     ",
+  "        ●─────●     ●─────●                    ",
+  "               \\   /                           ",
+  "                \\ /                            ",
+  "                 ●                             ",
+  "",
+  "         ✨ GRAPHQL EXPLORER ✨          ",
+  "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+  "",
+  "  Nenhum schema carregado ativo.",
+  "",
+  "  Comandos úteis para gerenciar:",
+  "  ▸ :GraphQLSelectConnection (trocar conexão)",
+  "  ▸ :GraphQLDownloadSchema (baixar atual)",
+  "  ▸ :GraphQLSetEndpoint (mudar endpoint url)",
+  "  ▸ :GraphQLSetAuth (mudar token/headers)",
+}
 
 -- Helper para formatar tipos GraphQL recursivamente
 local function format_type(t)
@@ -61,6 +93,56 @@ local function clean_nulls(tbl)
     end
   end
   return tbl
+end
+
+-- Aplica destaques coloridos de Pixel Art nas linhas do buffer do Explorer
+local function apply_line_highlights(buf, line_num, text)
+  local ns = vim.api.nvim_create_namespace("graphql_explorer_pixelart")
+  
+  -- Definição dos grupos de destaque com cores vivas e harmoniosas
+  vim.api.nvim_set_hl(0, "GraphQLWelcomeStars", { fg = "#f59e0b", bold = true }) -- Amarelo ouro
+  vim.api.nvim_set_hl(0, "GraphQLWelcomeRocket", { fg = "#ec4899", bold = true }) -- Rosa GraphQL
+  vim.api.nvim_set_hl(0, "GraphQLWelcomeBorder", { fg = "#475569" }) -- Slate escuro para bordas
+  vim.api.nvim_set_hl(0, "GraphQLWelcomeFire", { fg = "#f97316", bold = true }) -- Laranja fogo
+  vim.api.nvim_set_hl(0, "GraphQLWelcomeTitle", { fg = "#f472b6", bold = true }) -- Rosa brilhante
+  vim.api.nvim_set_hl(0, "GraphQLWelcomeBullets", { fg = "#a855f7" }) -- Roxo para setas e ícones
+  
+  if text:match("GRAPHQL EXPLORER") then
+    local start_col = text:find("GRAPHQL EXPLORER") - 1
+    local end_col = start_col + 16
+    vim.api.nvim_buf_add_highlight(buf, ns, "GraphQLWelcomeTitle", line_num, start_col, end_col)
+  end
+
+  local byte_idx = 0
+  while byte_idx < #text do
+    local byte = string.byte(text, byte_idx + 1)
+    local len = 1
+    if byte >= 240 then len = 4
+    elseif byte >= 224 then len = 3
+    elseif byte >= 192 then len = 2
+    end
+    
+    local char = text:sub(byte_idx + 1, byte_idx + len)
+    
+    local hl_group = nil
+    if char == "." or char == "*" then
+      hl_group = "GraphQLWelcomeStars"
+    elseif char == "●" or char == "█" or char == "▀" or char == "▲" or char == "│" then
+      hl_group = "GraphQLWelcomeRocket"
+    elseif char == "/" or char == "\\" or char == "─" or char == "┌" or char == "┐" or char == "┘" or char == "└" or char == "┴" or char == "━" then
+      hl_group = "GraphQLWelcomeBorder"
+    elseif char == "(" or char == ")" or char == "🔥" then
+      hl_group = "GraphQLWelcomeFire"
+    elseif char == "▸" or char == "•" or char == "◽" then
+      hl_group = "GraphQLWelcomeBullets"
+    end
+    
+    if hl_group then
+      vim.api.nvim_buf_add_highlight(buf, ns, hl_group, line_num, byte_idx, byte_idx + len)
+    end
+    
+    byte_idx = byte_idx + len
+  end
 end
 
 --- Carrega e parseia o schema da conexão ativa
@@ -106,19 +188,34 @@ function M.render()
   end
 
   local conn = conn_mgr.get_active()
-  add_line("🔍 SCHEMA EXPLORER")
-  add_line("Endpoint: " .. (conn and conn.name or "Nenhum"))
-  add_line(string.rep("━", 30))
-  add_line("")
 
+  -- Se não houver schema, exibe tela de boas-vindas com Pixel Art
   if not M.schema then
-    add_line("Nenhum schema carregado.")
-    add_line("Execute :GraphQLSelectConnection")
-    add_line("ou :GraphQLDownloadSchema")
+    for _, art_line in ipairs(WELCOME_ART) do
+      add_line(art_line)
+    end
     vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, lines)
+    
+    -- Aplica os realces de Pixel Art
+    local buf_lines = vim.api.nvim_buf_get_lines(M.buf, 0, -1, false)
+    for idx, text in ipairs(buf_lines) do
+      apply_line_highlights(M.buf, idx - 1, text)
+    end
+
     vim.api.nvim_set_option_value("modifiable", false, { buf = M.buf })
     return
   end
+
+  -- Se houver schema, adiciona cabeçalho com o logo compacto do GraphQL
+  add_line("         ●         ")
+  add_line("        / \\        ")
+  add_line("    ●───●─●───●    ")
+  add_line("     \\ /   \\ /     ")
+  add_line("      ●     ●      ")
+  add_line(" 🔍 SCHEMA EXPLORER ")
+  add_line(" Endpoint: " .. (conn and conn.name or "Nenhum"))
+  add_line(string.rep("━", 30))
+  add_line("")
 
   local schema = M.schema
 
@@ -131,7 +228,7 @@ function M.render()
     if M.state.expanded.queries then
       for _, f in ipairs(query_type.fields) do
         local line = string.format("  • %s%s: %s", f.name, format_args(f.args), format_type(f.type))
-        add_line(line, { type = "field", data = f })
+        add_line(line, { type = "field", data = f, category = "queries" })
       end
     end
     add_line("")
@@ -146,7 +243,7 @@ function M.render()
     if M.state.expanded.mutations then
       for _, f in ipairs(mut_type.fields) do
         local line = string.format("  • %s%s: %s", f.name, format_args(f.args), format_type(f.type))
-        add_line(line, { type = "field", data = f })
+        add_line(line, { type = "field", data = f, category = "mutations" })
       end
     end
     add_line("")
@@ -214,13 +311,155 @@ function M.render()
   end
 
   vim.api.nvim_buf_set_lines(M.buf, 0, -1, false, lines)
+  
+  -- Aplica os realces de Pixel Art nas linhas do topo
+  local buf_lines = vim.api.nvim_buf_get_lines(M.buf, 0, -1, false)
+  for idx, text in ipairs(buf_lines) do
+    apply_line_highlights(M.buf, idx - 1, text)
+  end
+
   vim.api.nvim_set_option_value("modifiable", false, { buf = M.buf })
 end
 
+-- Gera um fragmento de exemplo de campos para um tipo OBJECT
+local function generate_sample_fragment(type_name)
+  local t = M.types_by_name[type_name]
+  if not t or not t.fields then return nil end
+
+  local lines = {}
+  table.insert(lines, string.format("fragment %sFields on %s {", type_name, type_name))
+  local count = 0
+  for _, field in ipairs(t.fields) do
+    local base_name = get_base_type_name(field.type)
+    local is_scalar = false
+    if base_name then
+      local field_t = M.types_by_name[base_name]
+      if field_t then
+        is_scalar = (field_t.kind == "SCALAR" or field_t.kind == "ENUM" or base_name == "ID" or base_name == "String" or base_name == "Int" or base_name == "Float" or base_name == "Boolean")
+      end
+    end
+    
+    if is_scalar then
+      table.insert(lines, "  " .. field.name)
+      count = count + 1
+    else
+      table.insert(lines, string.format("  %s {", field.name))
+      table.insert(lines, "    id")
+      table.insert(lines, "  }")
+      count = count + 1
+    end
+    if count >= 6 then break end
+  end
+  table.insert(lines, "}")
+  return table.concat(lines, "\n")
+end
+
+-- Gera um JSON de variáveis de exemplo para um INPUT_OBJECT
+local function generate_sample_input_json(type_name)
+  local t = M.types_by_name[type_name]
+  if not t or not t.inputFields then return nil end
+
+  local lines = {}
+  table.insert(lines, "{")
+  for _, field in ipairs(t.inputFields) do
+    local base_name = get_base_type_name(field.type)
+    local default_val = "null"
+    if base_name == "String" then
+      default_val = '"valor"'
+    elseif base_name == "Int" or base_name == "Float" then
+      default_val = "0"
+    elseif base_name == "Boolean" then
+      default_val = "false"
+    elseif base_name == "ID" then
+      default_val = '"id"'
+    end
+    table.insert(lines, string.format('  "%s": %s,', field.name, default_val))
+  end
+  table.insert(lines, "}")
+  
+  if #lines > 2 then
+    lines[#lines - 1] = lines[#lines - 1]:gsub(",$", "")
+  end
+  return table.concat(lines, "\n")
+end
+
+-- Gera lista comentada de possíveis valores para ENUM
+local function generate_sample_enum(t)
+  local lines = {}
+  table.insert(lines, string.format("# Valores válidos para o ENUM %s:", t.name))
+  for _, val in ipairs(t.enumValues or {}) do
+    table.insert(lines, string.format("# - %s", val.name))
+  end
+  return table.concat(lines, "\n")
+end
+
+-- Gera uma query ou mutation completa baseada no campo
+local function generate_sample_query_or_mutation(field, is_mutation)
+  local name = field.name
+  local op_type = is_mutation and "mutation" or "query"
+  local op_name = name:sub(1,1):upper() .. name:sub(2)
+
+  local var_decls = {}
+  local arg_calls = {}
+  if field.args and #field.args > 0 then
+    for _, arg in ipairs(field.args) do
+      table.insert(var_decls, string.format("$%s: %s", arg.name, format_type(arg.type)))
+      table.insert(arg_calls, string.format("%s: $%s", arg.name, arg.name))
+    end
+  end
+
+  local vars_str = #var_decls > 0 and ("(" .. table.concat(var_decls, ", ") .. ")") or ""
+  local args_str = #arg_calls > 0 and ("(" .. table.concat(arg_calls, ", ") .. ")") or ""
+
+  local lines = {}
+  table.insert(lines, string.format("%s %s%s {", op_type, op_name, vars_str))
+  table.insert(lines, string.format("  %s%s {", name, args_str))
+
+  local ret_type_name = get_base_type_name(field.type)
+  if ret_type_name then
+    local ret_t = M.types_by_name[ret_type_name]
+    if ret_t and ret_t.fields then
+      local count = 0
+      for _, f in ipairs(ret_t.fields) do
+        local base_t = M.types_by_name[get_base_type_name(f.type)]
+        local is_scalar = false
+        if base_t then
+          is_scalar = (base_t.kind == "SCALAR" or base_t.kind == "ENUM" or base_t.name == "ID" or base_t.name == "String" or base_t.name == "Int" or base_t.name == "Float" or base_t.name == "Boolean")
+        else
+          local bn = get_base_type_name(f.type)
+          is_scalar = (bn == "ID" or bn == "String" or bn == "Int" or bn == "Float" or bn == "Boolean")
+        end
+        if is_scalar then
+          table.insert(lines, "    " .. f.name)
+          count = count + 1
+        end
+        if count >= 5 then break end
+      end
+      if count == 0 then
+        table.insert(lines, "    id")
+      end
+    else
+      table.insert(lines, "    # (tipo de retorno escalar)")
+    end
+  else
+    table.insert(lines, "    id")
+  end
+
+  table.insert(lines, "  }")
+  table.insert(lines, "}")
+  return table.concat(lines, "\n")
+end
+
 --- Exibe os detalhes de um tipo ou campo em uma janela flutuante
-local function show_details_float(title, info_lines)
-  local width = math.min(70, vim.o.columns - 10)
-  local height = math.min(#info_lines + 4, vim.o.rows - 10)
+local function show_details_float(title, info_lines, example_code)
+  -- Se já houver um float aberto, fecha antes de abrir o novo
+  if M.float_win and vim.api.nvim_win_is_valid(M.float_win) then
+    pcall(vim.api.nvim_win_close, M.float_win, true)
+    M.float_win = nil
+  end
+
+  local width = math.min(80, vim.o.columns - 10)
+  local height = math.min(#info_lines + 4, vim.o.lines - 10)
   
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, info_lines)
@@ -231,7 +470,7 @@ local function show_details_float(title, info_lines)
     relative = "editor",
     width = width,
     height = height,
-    row = math.floor((vim.o.rows - height) / 2),
+    row = math.floor((vim.o.lines - height) / 2),
     col = math.floor((vim.o.columns - width) / 2),
     style = "minimal",
     border = "rounded",
@@ -240,15 +479,59 @@ local function show_details_float(title, info_lines)
   }
 
   local win = vim.api.nvim_open_win(buf, true, win_opts)
+  M.float_win = win
   
   -- Keymaps para fechar o float
   local close_keys = { "q", "<esc>", "<CR>" }
   for _, key in ipairs(close_keys) do
     vim.keymap.set("n", key, function()
       if vim.api.nvim_win_is_valid(win) then
-        vim.api.nvim_win_close(win, true)
+        pcall(vim.api.nvim_win_close, win, true)
+      end
+      if M.float_win == win then
+        M.float_win = nil
       end
     end, { buffer = buf, silent = true })
+  end
+
+  if example_code then
+    -- 'y' para copiar o código de exemplo para o clipboard
+    vim.keymap.set("n", "y", function()
+      vim.fn.setreg("+", example_code)
+      vim.notify("[GraphQL Explorer] Exemplo copiado para a área de transferência!", vim.log.levels.INFO)
+    end, { buffer = buf, silent = true, desc = "Copiar exemplo" })
+
+    -- 'i' para inserir o código de exemplo no buffer original (de onde o explorer foi aberto)
+    vim.keymap.set("n", "i", function()
+      local target_buf = M.original_buf
+      if target_buf and vim.api.nvim_buf_is_valid(target_buf) then
+        -- Fecha a janela float
+        if vim.api.nvim_win_is_valid(win) then
+          pcall(vim.api.nvim_win_close, win, true)
+        end
+        if M.float_win == win then
+          M.float_win = nil
+        end
+        -- Insere as linhas
+        local lines = {}
+        for line in example_code:gmatch("[^\r\n]+") do
+          table.insert(lines, line)
+        end
+        
+        local wins = vim.fn.win_findbuf(target_buf)
+        if #wins > 0 then
+          vim.api.nvim_set_current_win(wins[1])
+          local cursor = vim.api.nvim_win_get_cursor(0)
+          vim.api.nvim_buf_set_lines(target_buf, cursor[1], cursor[1], false, lines)
+          vim.notify("[GraphQL Explorer] Exemplo inserido no buffer na linha do cursor!", vim.log.levels.INFO)
+        else
+          vim.api.nvim_buf_set_lines(target_buf, 0, 0, false, lines)
+          vim.notify("[GraphQL Explorer] Exemplo inserido no início do buffer!", vim.log.levels.INFO)
+        end
+      else
+        vim.notify("[GraphQL Explorer] Buffer original não encontrado para inserção.", vim.log.levels.WARN)
+      end
+    end, { buffer = buf, silent = true, desc = "Inserir exemplo no buffer" })
   end
 end
 
@@ -258,33 +541,88 @@ local function show_type_details(type_name)
   if not t then return end
 
   local lines = {}
-  table.insert(lines, "# " .. t.name)
+  table.insert(lines, "# Tipo GraphQL: " .. t.name)
   if t.description and t.description ~= "" then
-    table.insert(lines, "_" .. t.description .. "_")
+    table.insert(lines, "> " .. t.description)
   end
   table.insert(lines, "")
 
+  local example = nil
   if t.kind == "ENUM" then
-    table.insert(lines, "## Valores:")
+    table.insert(lines, "### Valores:")
     for _, val in ipairs(t.enumValues or {}) do
       local desc = val.description and (" - " .. val.description) or ""
-      table.insert(lines, string.format("* `%s`%s", val.name, desc))
+      table.insert(lines, string.format("* `%s` %s", val.name, desc))
     end
+    example = generate_sample_enum(t)
   elseif t.kind == "INPUT_OBJECT" then
-    table.insert(lines, "## Campos de Entrada (Input Fields):")
+    table.insert(lines, "### Campos de Entrada (Input Fields):")
     for _, field in ipairs(t.inputFields or {}) do
       local desc = field.description and (" - " .. field.description) or ""
       table.insert(lines, string.format("* **%s**: `%s` %s", field.name, format_type(field.type), desc))
     end
+    example = generate_sample_input_json(type_name)
   else
-    table.insert(lines, "## Campos (Fields):")
+    table.insert(lines, "### Campos (Fields):")
     for _, field in ipairs(t.fields or {}) do
       local desc = field.description and (" - " .. field.description) or ""
       table.insert(lines, string.format("* **%s**%s: `%s` %s", field.name, format_args(field.args), format_type(field.type), desc))
     end
+    example = generate_sample_fragment(type_name)
   end
 
-  show_details_float("GraphQL Tipo: " .. type_name, lines)
+  if example then
+    table.insert(lines, "")
+    table.insert(lines, "---")
+    table.insert(lines, "### Exemplo de Possibilidade:")
+    table.insert(lines, "> 💡 Pressione **`y`** para copiar este código de exemplo, ou **`i`** para inseri-lo no arquivo ativo.")
+    table.insert(lines, "")
+    local lang = (t.kind == "INPUT_OBJECT") and "json" or "graphql"
+    table.insert(lines, "```" .. lang)
+    for ex_line in example:gmatch("[^\r\n]+") do
+      table.insert(lines, ex_line)
+    end
+    table.insert(lines, "```")
+  end
+
+  show_details_float("GraphQL Tipo: " .. type_name, lines, example)
+end
+
+--- Exibe detalhes de um campo de Query ou Mutation
+local function show_field_details(field, is_mutation)
+  local lines = {}
+  local label = is_mutation and "Mutation" or "Query"
+  table.insert(lines, string.format("# %s: %s", label, field.name))
+  if field.description and field.description ~= "" then
+    table.insert(lines, "> " .. field.description)
+  end
+  table.insert(lines, "")
+  table.insert(lines, string.format("* **Retorno**: `%s`", format_type(field.type)))
+  
+  if field.args and #field.args > 0 then
+    table.insert(lines, "")
+    table.insert(lines, "### Argumentos da Função:")
+    for _, arg in ipairs(field.args) do
+      local desc = arg.description and (" - " .. arg.description) or ""
+      table.insert(lines, string.format("* **%s**: `%s` %s", arg.name, format_type(arg.type), desc))
+    end
+  end
+
+  local example = generate_sample_query_or_mutation(field, is_mutation)
+  if example then
+    table.insert(lines, "")
+    table.insert(lines, "---")
+    table.insert(lines, "### Exemplo de Requisição:")
+    table.insert(lines, "> 💡 Pressione **`y`** para copiar este exemplo de query, ou **`i`** para inseri-lo no arquivo ativo.")
+    table.insert(lines, "")
+    table.insert(lines, "```graphql")
+    for ex_line in example:gmatch("[^\r\n]+") do
+      table.insert(lines, ex_line)
+    end
+    table.insert(lines, "```")
+  end
+
+  show_details_float(string.format("GraphQL %s: %s", label, field.name), lines, example)
 end
 
 --- Ação de clique / Enter no explorer
@@ -300,11 +638,8 @@ function M.handle_action()
   elseif meta.type == "type_link" then
     show_type_details(meta.name)
   elseif meta.type == "field" then
-    -- Abre detalhes do tipo base daquele campo
-    local base_type = get_base_type_name(meta.data.type)
-    if base_type then
-      show_type_details(base_type)
-    end
+    local is_mutation = (meta.category == "mutations")
+    show_field_details(meta.data, is_mutation)
   end
 end
 
@@ -314,7 +649,18 @@ function M.toggle()
   if M.win and vim.api.nvim_win_is_valid(M.win) then
     vim.api.nvim_win_close(M.win, true)
     M.win = nil
+    -- Fecha o float também se estiver aberto para não deixá-lo órfão na tela
+    if M.float_win and vim.api.nvim_win_is_valid(M.float_win) then
+      pcall(vim.api.nvim_win_close, M.float_win, true)
+      M.float_win = nil
+    end
     return
+  end
+
+  -- Salva o buffer original que o usuário estava editando antes de abrir o explorer
+  local current_buf = vim.api.nvim_get_current_buf()
+  if current_buf ~= M.buf then
+    M.original_buf = current_buf
   end
 
   -- Carrega o schema da conexão ativa

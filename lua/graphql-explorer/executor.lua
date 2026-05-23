@@ -41,52 +41,78 @@ local function get_variables(filepath)
 end
 
 --- Exibe a resposta JSON formatada em uma janela split lateral
-local function display_result(content)
-  -- Formata o JSON usando o formatador interno do Neovim (se válido)
-  local formatted = content
-  local ok, decoded = pcall(vim.fn.json_decode, content)
-  if ok then
-    formatted = vim.fn.json_encode(decoded)
-    -- Embeleza o JSON usando jq se disponível, ou fallback para Python/Lua
-    if vim.fn.executable("jq") == 1 then
-      formatted = vim.fn.system("jq .", content)
-    else
-      -- Fallback usando python -m json.tool
-      if vim.fn.executable("python3") == 1 then
-        formatted = vim.fn.system("python3 -m json.tool", content)
+local function display_result(content, duration_ms, endpoint_name, success, error_msg)
+  local formatted = ""
+  if success and content then
+    local ok, decoded = pcall(vim.fn.json_decode, content)
+    if ok then
+      formatted = vim.fn.json_encode(decoded)
+      -- Embeleza o JSON usando jq se disponível, ou fallback para Python/Lua
+      if vim.fn.executable("jq") == 1 then
+        formatted = vim.fn.system({"jq", "."}, content)
+      elseif vim.fn.executable("python3") == 1 then
+        formatted = vim.fn.system({"python3", "-m", "json.tool"}, content)
       end
+    else
+      formatted = content
     end
+  else
+    formatted = error_msg or "Erro desconhecido durante a requisição."
   end
+
+  -- Monta o cabeçalho de status da resposta em formato de comentário jsonc
+  local header = {}
+  if success then
+    table.insert(header, string.format("// ⚡ Status: SUCESSO | ⏱️ Tempo: %dms | 🌐 Endpoint: %s", duration_ms, endpoint_name))
+  else
+    table.insert(header, string.format("// ❌ Status: ERRO | ⏱️ Tempo: %dms | 🌐 Endpoint: %s", duration_ms, endpoint_name))
+  end
+  table.insert(header, "// " .. string.rep("━", 55))
+  table.insert(header, "")
 
   -- Verifica se o buffer de resultado existe e é válido, senão cria um novo
   if not M.result_buf or not vim.api.nvim_buf_is_valid(M.result_buf) then
     M.result_buf = vim.api.nvim_create_buf(false, true) -- nofile, scratch
-    vim.api.nvim_set_option_value("filetype", "json", { buf = M.result_buf })
+    vim.api.nvim_set_option_value("filetype", "jsonc", { buf = M.result_buf }) -- jsonc para ignorar os comentários de cabeçalho
     vim.api.nvim_set_option_value("buftype", "nofile", { buf = M.result_buf })
     vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = M.result_buf })
     vim.api.nvim_buf_set_name(M.result_buf, "GraphQL Resultado")
+  else
+    vim.api.nvim_set_option_value("filetype", "jsonc", { buf = M.result_buf })
   end
 
   -- Divide as linhas do conteúdo formatado
   local lines = {}
+  for _, h_line in ipairs(header) do
+    table.insert(lines, h_line)
+  end
   for line in formatted:gmatch("[^\r\n]+") do
     table.insert(lines, line)
   end
   vim.api.nvim_buf_set_lines(M.result_buf, 0, -1, false, lines)
 
+  -- Highlights no cabeçalho
+  local ns = vim.api.nvim_create_namespace("graphql_result_header")
+  vim.api.nvim_buf_clear_namespace(M.result_buf, ns, 0, -1)
+
+  if success then
+    vim.api.nvim_set_hl(0, "GraphQLResultSuccess", { fg = "#10b981", bold = true }) -- Green
+    vim.api.nvim_buf_add_highlight(M.result_buf, ns, "GraphQLResultSuccess", 0, 3, 20)
+  else
+    vim.api.nvim_set_hl(0, "GraphQLResultError", { fg = "#ef4444", bold = true }) -- Red
+    vim.api.nvim_buf_add_highlight(M.result_buf, ns, "GraphQLResultError", 0, 3, 17)
+  end
+  vim.api.nvim_set_hl(0, "GraphQLResultMeta", { fg = "#818cf8", italic = true }) -- Indigo/Purple light
+  vim.api.nvim_buf_add_highlight(M.result_buf, ns, "GraphQLResultMeta", 0, 20, -1)
+
   -- Abre o split lateral se a janela não estiver ativa
   if not M.result_win or not vim.api.nvim_win_is_valid(M.result_win) then
-    -- Abre no split vertical direito
     vim.cmd("vsplit")
     M.result_win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(M.result_win, M.result_buf)
   else
     vim.api.nvim_win_set_buf(M.result_win, M.result_buf)
   end
-
-  -- Foca novamente na janela de origem
-  -- (Opcional: descomente a linha abaixo se preferir que o cursor continue na query)
-  -- vim.api.nvim_set_current_win(origin_win)
 end
 
 --- Executa a query GraphQL do buffer atual
@@ -143,17 +169,22 @@ function M.execute_query()
     end
   end
 
+  local start_time = vim.uv.hrtime()
+
   -- Executa requisição assíncrona
   vim.system({"curl", unpack(args)}, {
     stdin = payload,
     text = true
   }, function(obj)
+    local end_time = vim.uv.hrtime()
+    local duration_ms = math.floor((end_time - start_time) / 1e6)
+
     vim.schedule(function()
       if obj.code ~= 0 then
-        vim.notify(string.format("[GraphQL Explorer] Erro de requisição (Code %d):\n%s", obj.code, obj.stderr or ""), vim.log.levels.ERROR)
+        display_result(nil, duration_ms, conn.name, false, obj.stderr or ("Erro do curl: código " .. obj.code))
         return
       end
-      display_result(obj.stdout)
+      display_result(obj.stdout, duration_ms, conn.name, true)
     end)
   end)
 end

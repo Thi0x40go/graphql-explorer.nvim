@@ -29,6 +29,24 @@ function M.setup(opts)
     end)
   end, { desc = "Selecionar Conexão GraphQL ativa" })
 
+  vim.api.nvim_create_user_command("GraphQLSetEndpoint", function()
+    conn_mgr.set_active_endpoint(function(conn)
+      if explorer.win and vim.api.nvim_win_is_valid(explorer.win) then
+        explorer.toggle()
+        explorer.toggle()
+      end
+    end)
+  end, { desc = "Alterar Endpoint URL da conexão ativa" })
+
+  vim.api.nvim_create_user_command("GraphQLSetAuth", function()
+    conn_mgr.set_active_auth(function(conn)
+      if explorer.win and vim.api.nvim_win_is_valid(explorer.win) then
+        explorer.toggle()
+        explorer.toggle()
+      end
+    end)
+  end, { desc = "Alterar token de Autorização da conexão ativa" })
+
   vim.api.nvim_create_user_command("GraphQLExecute", function()
     executor.execute_query()
   end, { desc = "Executar Query GraphQL do buffer" })

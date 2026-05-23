@@ -59,7 +59,9 @@ return {
 
 | Command | Description |
 | :--- | :--- |
-| `:GraphQLSelectConnection` | Opens an interactive list (`vim.ui.select`) to choose the active connection. |
+| `:GraphQLSelectConnection` | Opens an interactive list (`vim.ui.select`) to choose the active connection (including creating a custom one). |
+| `:GraphQLSetEndpoint` | Dynamically updates the endpoint URL for the active connection. |
+| `:GraphQLSetAuth` | Dynamically updates the Authorization header/token for the active connection. |
 | `:GraphQLDownloadSchema` | Downloads (or updates) the active endpoint schema using Introspection. |
 | `:GraphQLExplorerToggle` | Opens or closes the sidebar with the Schema Explorer. |
 | `:GraphQLExecute` | Executes the GraphQL query from the current buffer and shows the JSON output in a vertical split. |
