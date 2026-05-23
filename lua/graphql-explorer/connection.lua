@@ -40,6 +40,22 @@ query IntrospectionQuery {
                 ofType {
                   kind
                   name
+                  ofType {
+                    kind
+                    name
+                    ofType {
+                      kind
+                      name
+                      ofType {
+                        kind
+                        name
+                        ofType {
+                          kind
+                          name
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -58,6 +74,22 @@ query IntrospectionQuery {
               ofType {
                 kind
                 name
+                ofType {
+                  kind
+                  name
+                  ofType {
+                    kind
+                    name
+                    ofType {
+                      kind
+                      name
+                      ofType {
+                        kind
+                        name
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -74,6 +106,30 @@ query IntrospectionQuery {
           ofType {
             kind
             name
+            ofType {
+              kind
+              name
+              ofType {
+                kind
+                name
+                ofType {
+                  kind
+                  name
+                  ofType {
+                    kind
+                    name
+                    ofType {
+                      kind
+                      name
+                      ofType {
+                        kind
+                        name
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
         defaultValue

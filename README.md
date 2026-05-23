@@ -21,9 +21,7 @@ Adicione as configurações abaixo na sua estrutura de plugins do Neovim (ex: `l
 ```lua
 return {
   {
-    "thiago/graphql-explorer.nvim",
-    -- Aponta para o diretório local onde o plugin está criado
-    dir = "/home/thiago/.gemini/antigravity-cli/scratch/graphql-explorer.nvim",
+    "Thi0x40go/graphql-explorer.nvim",
     opts = {
       connections = {
         {
