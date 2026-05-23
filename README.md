@@ -1,22 +1,24 @@
 # graphql-explorer.nvim
 
-Um plugin Neovim escrito em Lua para executar queries GraphQL e explorar visualmente schemas (como nas extensões do navegador), com integração automática com o **`graphql-lsp`**.
+[Português (pt-br)](./README.pt-br.md)
+
+A Neovim plugin written in Lua to execute GraphQL queries and visually explore schemas (similar to browser extensions), with automatic integration with **`graphql-lsp`**.
 
 ---
 
-## ✨ Funcionalidades
+## ✨ Features
 
-*   🔌 **Gerenciador de Conexões:** Defina múltiplos profiles de API (endpoints e headers de autenticação).
-*   🔍 **Schema Explorer Lateral:** Uma árvore interativa com Queries, Mutations e Tipos do endpoint. Aperte `<CR>` (Enter) para abrir uma janela flutuante com a documentação do tipo (campos, argumentos, tipos de retorno, descrições).
-*   🚀 **Query Executor:** Execute queries direto do seu buffer `.graphql` e veja os resultados JSON formatados em uma split lateral.
-*   🧠 **LSP Automático:** Cria o arquivo `graphql.config.json` na raiz do projeto dinamicamente ao selecionar um endpoint, permitindo que a autocompletação do seu LSP oficial do GraphQL (`graphql-lsp`) funcione imediatamente.
-*   ⚡ **Zero dependências externas:** Usa `curl` nativo do sistema e comandos assíncronos do Neovim 0.10+ (`vim.system`).
+*   🔌 **Connection Manager:** Define multiple API profiles (endpoints and authentication headers).
+*   🔍 **Sidebar Schema Explorer:** An interactive tree with Queries, Mutations, and Types from the endpoint. Press `<CR>` (Enter) to open a floating window with the type's documentation (fields, arguments, return types, descriptions).
+*   🚀 **Query Executor:** Execute queries directly from your `.graphql` buffer and view formatted JSON results in a vertical split.
+*   🧠 **Automatic LSP:** Dynamically creates the `graphql.config.json` file in the project root when selecting an endpoint, enabling autocompletion for the official GraphQL LSP (`graphql-lsp`) immediately.
+*   ⚡ **Zero external dependencies:** Uses system native `curl` and Neovim 0.10+ asynchronous commands (`vim.system`).
 
 ---
 
-## 📦 Instalação (com Lazy.nvim)
+## 📦 Installation (with Lazy.nvim)
 
-Adicione as configurações abaixo na sua estrutura de plugins do Neovim (ex: `lua/plugins/graphql-explorer.lua`):
+Add the configuration below to your Neovim plugin structure (e.g., `lua/plugins/graphql-explorer.lua`):
 
 ```lua
 return {
@@ -33,7 +35,7 @@ return {
           name = "Local Dev",
           url = "http://localhost:4000/graphql",
           headers = {
-            ["Authorization"] = "Bearer seu-token-aqui"
+            ["Authorization"] = "Bearer your-token-here"
           }
         }
       }
@@ -42,10 +44,10 @@ return {
       require("graphql-explorer").setup(opts)
     end,
     keys = {
-      { "<leader>gxs", "<cmd>GraphQLSelectConnection<cr>", desc = "Selecionar Conexão GraphQL" },
-      { "<leader>gxe", "<cmd>GraphQLExplorerToggle<cr>", desc = "Abrir/Fechar Schema Explorer" },
-      { "<leader>gxr", "<cmd>GraphQLExecute<cr>", desc = "Executar Query GraphQL" },
-      { "<leader>gxd", "<cmd>GraphQLDownloadSchema<cr>", desc = "Baixar Schema do Endpoint" },
+      { "<leader>gxs", "<cmd>GraphQLSelectConnection<cr>", desc = "Select GraphQL Connection" },
+      { "<leader>gxe", "<cmd>GraphQLExplorerToggle<cr>", desc = "Toggle Schema Explorer" },
+      { "<leader>gxr", "<cmd>GraphQLExecute<cr>", desc = "Execute GraphQL Query" },
+      { "<leader>gxd", "<cmd>GraphQLDownloadSchema<cr>", desc = "Download Endpoint Schema" },
     }
   }
 }
@@ -53,35 +55,35 @@ return {
 
 ---
 
-## 🎮 Comandos Disponíveis
+## 🎮 Available Commands
 
-| Comando | Descrição |
+| Command | Description |
 | :--- | :--- |
-| `:GraphQLSelectConnection` | Abre uma lista interativa (`vim.ui.select`) para escolher a conexão ativa. |
-| `:GraphQLDownloadSchema` | Baixa (ou atualiza) o schema do endpoint ativo usando Introspecção. |
-| `:GraphQLExplorerToggle` | Abre ou fecha o painel lateral com o Schema Explorer. |
-| `:GraphQLExecute` | Executa a query GraphQL do buffer atual e mostra o resultado JSON em um split vertical. |
+| `:GraphQLSelectConnection` | Opens an interactive list (`vim.ui.select`) to choose the active connection. |
+| `:GraphQLDownloadSchema` | Downloads (or updates) the active endpoint schema using Introspection. |
+| `:GraphQLExplorerToggle` | Opens or closes the sidebar with the Schema Explorer. |
+| `:GraphQLExecute` | Executes the GraphQL query from the current buffer and shows the JSON output in a vertical split. |
 
 ---
 
-## 💡 Como Usar
+## 💡 Usage
 
-### 1. Selecionando uma conexão
-1. Execute `:GraphQLSelectConnection` e escolha a API.
-2. O plugin fará download do schema automaticamente via Introspecção.
-3. Se você estiver dentro de um projeto, um `graphql.config.json` será criado na raiz para ligar o autocompletação do LSP.
+### 1. Selecting a connection
+1. Run `:GraphQLSelectConnection` and choose the API.
+2. The plugin will download the schema automatically via Introspection.
+3. If you are inside a project, a `graphql.config.json` will be created in the root directory to enable LSP autocompletion.
 
-### 2. Explorando o Schema
-1. Digite `:GraphQLExplorerToggle` para abrir o painel esquerdo.
-2. Navegue até a categoria desejada (ex: **Queries**, **Types**) e aperte `<CR>` (Enter) para abrir/recolher.
-3. Em um Tipo (ex: `Player`) ou Campo, aperte `<CR>` para abrir um popup contendo a documentação completa. Aperte `q` ou `Esc` para fechar o popup.
+### 2. Exploring the Schema
+1. Type `:GraphQLExplorerToggle` to open the left panel.
+2. Navigate to the desired category (e.g., **Queries**, **Types**) and press `<CR>` (Enter) to expand/collapse.
+3. On a Type (e.g., `Player`) or Field, press `<CR>` to open a popup containing the full documentation. Press `q` or `Esc` to close the popup.
 
-### 3. Escrevendo e executando Queries
-1. Crie ou abra um arquivo `.graphql` (ex: `teste.graphql`).
-2. Digite sua Query GraphQL.
-3. Se você quiser enviar variáveis para a query:
-   * **Método A:** Crie um arquivo com o mesmo nome e extensão `.json` no mesmo diretório (ex: `teste.json`) e escreva o JSON das variáveis nele.
-   * **Método B:** Adicione um comentário na primeira linha do seu arquivo `.graphql` informando o JSON inline:
+### 3. Writing and executing Queries
+1. Create or open a `.graphql` file (e.g., `test.graphql`).
+2. Write your GraphQL Query.
+3. If you want to send variables to the query:
+   * **Method A:** Create a file with the same name and a `.json` extension in the same directory (e.g., `test.json`) and write the variables' JSON in it.
+   * **Method B:** Add a comment on the first line of your `.graphql` file specifying the inline JSON:
      ```graphql
      # variables: { "id": "123" }
      query GetUser($id: ID!) {
@@ -90,4 +92,4 @@ return {
        }
      }
      ```
-4. Execute `:GraphQLExecute` (ou atalho `<leader>gxr`). O resultado abrirá em uma janela lateral direita formatado.
+4. Run `:GraphQLExecute` (or shortcut `<leader>gxr`). The formatted result will open in a right vertical split.
