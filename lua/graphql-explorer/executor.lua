@@ -1,0 +1,161 @@
+local M = {}
+
+local conn_mgr = require("graphql-explorer.connection")
+
+-- Mantém uma referência ao buffer de resultados para reusá-lo se aberto
+M.result_buf = nil
+M.result_win = nil
+
+--- Busca as variáveis associadas ao buffer atual
+local function get_variables(filepath)
+  -- 1. Tenta achar arquivo JSON companheiro (ex: query.graphql -> query.json ou query.variables.json)
+  if filepath and filepath ~= "" then
+    local base = filepath:match("(.+)%.%w+$")
+    if base then
+      local json_paths = { base .. ".json", base .. ".variables.json" }
+      for _, path in ipairs(json_paths) do
+        if vim.fn.filereadable(path) == 1 then
+          local content = table.concat(vim.fn.readfile(path), "\n")
+          local ok, decoded = pcall(vim.fn.json_decode, content)
+          if ok then
+            return decoded
+          end
+        end
+      end
+    end
+  end
+
+  -- 2. Tenta parsear metadados no início do buffer, ex: "# variables: { "id": 1 }"
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  for _, line in ipairs(lines) do
+    local inline_vars = line:match("^#%s*variables:%s*(.+)$")
+    if inline_vars then
+      local ok, decoded = pcall(vim.fn.json_decode, inline_vars)
+      if ok then
+        return decoded
+      end
+    end
+  end
+
+  return nil
+end
+
+--- Exibe a resposta JSON formatada em uma janela split lateral
+local function display_result(content)
+  -- Formata o JSON usando o formatador interno do Neovim (se válido)
+  local formatted = content
+  local ok, decoded = pcall(vim.fn.json_decode, content)
+  if ok then
+    formatted = vim.fn.json_encode(decoded)
+    -- Embeleza o JSON usando jq se disponível, ou fallback para Python/Lua
+    if vim.fn.executable("jq") == 1 then
+      formatted = vim.fn.system("jq .", content)
+    else
+      -- Fallback usando python -m json.tool
+      if vim.fn.executable("python3") == 1 then
+        formatted = vim.fn.system("python3 -m json.tool", content)
+      end
+    end
+  end
+
+  -- Verifica se o buffer de resultado existe e é válido, senão cria um novo
+  if not M.result_buf or not vim.api.nvim_buf_is_valid(M.result_buf) then
+    M.result_buf = vim.api.nvim_create_buf(false, true) -- nofile, scratch
+    vim.api.nvim_set_option_value("filetype", "json", { buf = M.result_buf })
+    vim.api.nvim_set_option_value("buftype", "nofile", { buf = M.result_buf })
+    vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = M.result_buf })
+    vim.api.nvim_buf_set_name(M.result_buf, "GraphQL Resultado")
+  end
+
+  -- Divide as linhas do conteúdo formatado
+  local lines = {}
+  for line in formatted:gmatch("[^\r\n]+") do
+    table.insert(lines, line)
+  end
+  vim.api.nvim_buf_set_lines(M.result_buf, 0, -1, false, lines)
+
+  -- Abre o split lateral se a janela não estiver ativa
+  if not M.result_win or not vim.api.nvim_win_is_valid(M.result_win) then
+    -- Abre no split vertical direito
+    vim.cmd("vsplit")
+    M.result_win = vim.api.nvim_get_current_win()
+    vim.api.nvim_win_set_buf(M.result_win, M.result_buf)
+  else
+    vim.api.nvim_win_set_buf(M.result_win, M.result_buf)
+  end
+
+  -- Foca novamente na janela de origem
+  -- (Opcional: descomente a linha abaixo se preferir que o cursor continue na query)
+  -- vim.api.nvim_set_current_win(origin_win)
+end
+
+--- Executa a query GraphQL do buffer atual
+function M.execute_query()
+  local conn = conn_mgr.get_active()
+  if not conn then
+    vim.notify("[GraphQL Explorer] Nenhuma conexão ativa. Use :GraphQLSelectConnection primeiro.", vim.log.levels.WARN)
+    return
+  end
+
+  -- Obtém todo o conteúdo do buffer (a query)
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local query_lines = {}
+  for _, line in ipairs(lines) do
+    -- Ignora comentários ao concatenar a query
+    if not line:match("^#") then
+      table.insert(query_lines, line)
+    end
+  end
+  local query = table.concat(query_lines, "\n")
+
+  if query:gsub("%s+", "") == "" then
+    vim.notify("[GraphQL Explorer] O buffer atual está vazio ou contém apenas comentários.", vim.log.levels.WARN)
+    return
+  end
+
+  -- Busca variáveis
+  local filepath = vim.api.nvim_buf_get_name(0)
+  local variables = get_variables(filepath)
+
+  -- Monta payload JSON
+  local payload_data = {
+    query = query,
+    variables = variables or {}
+  }
+  local payload = vim.fn.json_encode(payload_data)
+
+  vim.notify(string.format("[GraphQL Explorer] Enviando requisição para '%s'...", conn.name), vim.log.levels.INFO)
+
+  -- Prepara argumentos do curl
+  local args = {
+    "-s",
+    "-X", "POST",
+    "-H", "Content-Type: application/json",
+    "-d", "@-",
+    conn.url
+  }
+
+  -- Adiciona headers
+  if conn.headers then
+    for k, v in pairs(conn.headers) do
+      table.insert(args, "-H")
+      table.insert(args, string.format("%s: %s", k, v))
+    end
+  end
+
+  -- Executa requisição assíncrona
+  vim.system({"curl", unpack(args)}, {
+    stdin = payload,
+    text = true
+  }, function(obj)
+    vim.schedule(function()
+      if obj.code ~= 0 then
+        vim.notify(string.format("[GraphQL Explorer] Erro de requisição (Code %d):\n%s", obj.code, obj.stderr or ""), vim.log.levels.ERROR)
+        return
+      end
+      display_result(obj.stdout)
+    end)
+  end)
+end
+
+return M
