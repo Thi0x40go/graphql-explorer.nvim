@@ -647,7 +647,16 @@ end
 function M.toggle()
   -- Se a janela estiver aberta e for válida, fecha-a
   if M.win and vim.api.nvim_win_is_valid(M.win) then
-    vim.api.nvim_win_close(M.win, true)
+    local ok, _ = pcall(vim.api.nvim_win_close, M.win, true)
+    if not ok then
+      -- Se for a última janela (erro E444), apenas trocamos o buffer para não quebrar
+      local target_buf = M.original_buf
+      if not target_buf or not vim.api.nvim_buf_is_valid(target_buf) then
+        target_buf = vim.api.nvim_create_buf(true, false)
+      end
+      vim.api.nvim_win_set_buf(M.win, target_buf)
+      pcall(vim.api.nvim_set_option_value, "winfixwidth", false, { win = M.win })
+    end
     M.win = nil
     -- Fecha o float também se estiver aberto para não deixá-lo órfão na tela
     if M.float_win and vim.api.nvim_win_is_valid(M.float_win) then
