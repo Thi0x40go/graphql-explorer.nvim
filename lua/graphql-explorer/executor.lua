@@ -57,15 +57,15 @@ local function display_result(content, duration_ms, endpoint_name, success, erro
       formatted = content
     end
   else
-    formatted = error_msg or "Erro desconhecido durante a requisição."
+    formatted = error_msg or "Unknown error during request."
   end
 
   -- Monta o cabeçalho de status da resposta em formato de comentário jsonc
   local header = {}
   if success then
-    table.insert(header, string.format("// ⚡ Status: SUCESSO | ⏱️ Tempo: %dms | 🌐 Endpoint: %s", duration_ms, endpoint_name))
+    table.insert(header, string.format("// ⚡ Status: SUCCESS | ⏱️ Time: %dms | 🌐 Endpoint: %s", duration_ms, endpoint_name))
   else
-    table.insert(header, string.format("// ❌ Status: ERRO | ⏱️ Tempo: %dms | 🌐 Endpoint: %s", duration_ms, endpoint_name))
+    table.insert(header, string.format("// ❌ Status: ERROR | ⏱️ Time: %dms | 🌐 Endpoint: %s", duration_ms, endpoint_name))
   end
   table.insert(header, "// " .. string.rep("━", 55))
   table.insert(header, "")
@@ -76,7 +76,7 @@ local function display_result(content, duration_ms, endpoint_name, success, erro
     vim.api.nvim_set_option_value("filetype", "jsonc", { buf = M.result_buf }) -- jsonc para ignorar os comentários de cabeçalho
     vim.api.nvim_set_option_value("buftype", "nofile", { buf = M.result_buf })
     vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = M.result_buf })
-    vim.api.nvim_buf_set_name(M.result_buf, "GraphQL Resultado")
+    vim.api.nvim_buf_set_name(M.result_buf, "GraphQL Result")
   else
     vim.api.nvim_set_option_value("filetype", "jsonc", { buf = M.result_buf })
   end
@@ -119,7 +119,7 @@ end
 function M.execute_query()
   local conn = conn_mgr.get_active()
   if not conn then
-    vim.notify("[GraphQL Explorer] Nenhuma conexão ativa. Use :GraphQLSelectConnection primeiro.", vim.log.levels.WARN)
+    vim.notify("[GraphQL Explorer] No active connection. Use :GraphQLSelectConnection first.", vim.log.levels.WARN)
     return
   end
 
@@ -135,7 +135,7 @@ function M.execute_query()
   local query = table.concat(query_lines, "\n")
 
   if query:gsub("%s+", "") == "" then
-    vim.notify("[GraphQL Explorer] O buffer atual está vazio ou contém apenas comentários.", vim.log.levels.WARN)
+    vim.notify("[GraphQL Explorer] The current buffer is empty or contains only comments.", vim.log.levels.WARN)
     return
   end
 
@@ -150,7 +150,7 @@ function M.execute_query()
   }
   local payload = vim.fn.json_encode(payload_data)
 
-  vim.notify(string.format("[GraphQL Explorer] Enviando requisição para '%s'...", conn.name), vim.log.levels.INFO)
+  vim.notify(string.format("[GraphQL Explorer] Sending request to '%s'...", conn.name), vim.log.levels.INFO)
 
   -- Prepara argumentos do curl
   local args = {
@@ -181,7 +181,7 @@ function M.execute_query()
 
     vim.schedule(function()
       if obj.code ~= 0 then
-        display_result(nil, duration_ms, conn.name, false, obj.stderr or ("Erro do curl: código " .. obj.code))
+        display_result(nil, duration_ms, conn.name, false, obj.stderr or ("Curl error: code " .. obj.code))
         return
       end
       display_result(obj.stdout, duration_ms, conn.name, true)

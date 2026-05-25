@@ -27,7 +27,7 @@ function M.setup(opts)
         explorer.toggle() -- Abre com o novo schema
       end
     end)
-  end, { desc = "Selecionar Conexão GraphQL ativa" })
+  end, { desc = "Select active GraphQL Connection" })
 
   vim.api.nvim_create_user_command("GraphQLSetEndpoint", function()
     conn_mgr.set_active_endpoint(function(conn)
@@ -36,7 +36,7 @@ function M.setup(opts)
         explorer.toggle()
       end
     end)
-  end, { desc = "Alterar Endpoint URL da conexão ativa" })
+  end, { desc = "Change Endpoint URL of the active connection" })
 
   vim.api.nvim_create_user_command("GraphQLSetAuth", function()
     conn_mgr.set_active_auth(function(conn)
@@ -45,15 +45,15 @@ function M.setup(opts)
         explorer.toggle()
       end
     end)
-  end, { desc = "Alterar token de Autorização da conexão ativa" })
+  end, { desc = "Change Authorization token of the active connection" })
 
   vim.api.nvim_create_user_command("GraphQLExecute", function()
     executor.execute_query()
-  end, { desc = "Executar Query GraphQL do buffer" })
+  end, { desc = "Execute GraphQL Query from buffer" })
 
   vim.api.nvim_create_user_command("GraphQLExplorerToggle", function()
     explorer.toggle()
-  end, { desc = "Abrir/Fechar GraphQL Schema Explorer" })
+  end, { desc = "Open/Close GraphQL Schema Explorer" })
 
   vim.api.nvim_create_user_command("GraphQLDownloadSchema", function()
     local conn = conn_mgr.get_active()
@@ -64,9 +64,9 @@ function M.setup(opts)
         end
       end)
     else
-      vim.notify("[GraphQL Explorer] Nenhuma conexão ativa selecionada.", vim.log.levels.WARN)
+      vim.notify("[GraphQL Explorer] No active connection selected.", vim.log.levels.WARN)
     end
-  end, { desc = "Baixar Schema do endpoint ativo manualmente" })
+  end, { desc = "Manually download Schema from the active endpoint" })
 
   -- Configuração automática de sintaxe para arquivos .graphql
   vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {

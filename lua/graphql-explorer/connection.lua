@@ -167,19 +167,19 @@ function M.select_connection(callback)
   for i, conn in ipairs(M.connections) do
     table.insert(options, string.format("%d: %s (%s)", i, conn.name, conn.url))
   end
-  table.insert(options, "+ Adicionar Conexão Customizada")
+  table.insert(options, "+ Add Custom Connection")
 
   vim.ui.select(options, {
-    prompt = "Selecione a Conexão GraphQL ativa:",
+    prompt = "Select active GraphQL Connection:",
   }, function(choice, idx)
     if choice then
-      if choice == "+ Adicionar Conexão Customizada" then
+      if choice == "+ Add Custom Connection" then
         M.configure_custom_connection(callback)
         return
       end
       M.active_index = idx
       local conn = M.connections[idx]
-      vim.notify(string.format("[GraphQL Explorer] Conexão ativa alterada para: %s", conn.name), vim.log.levels.INFO)
+      vim.notify(string.format("[GraphQL Explorer] Active connection changed to: %s", conn.name), vim.log.levels.INFO)
       
       -- Ao selecionar, sincroniza o LSP e baixa o schema se necessário
       M.download_schema(conn, function(success)
@@ -195,14 +195,14 @@ end
 function M.configure_custom_connection(callback)
   vim.ui.input({ prompt = "Endpoint URL: " }, function(url)
     if not url or url == "" then
-      vim.notify("[GraphQL Explorer] Operação cancelada. Endpoint URL é obrigatório.", vim.log.levels.WARN)
+      vim.notify("[GraphQL Explorer] Operation cancelled. Endpoint URL is required.", vim.log.levels.WARN)
       return
     end
 
-    vim.ui.input({ prompt = "Nome da Conexão (default: Custom Endpoint): " }, function(name)
+    vim.ui.input({ prompt = "Connection Name (default: Custom Endpoint): " }, function(name)
       name = (name and name ~= "") and name or "Custom Endpoint"
       
-      vim.ui.input({ prompt = "Token de Autorização / Header (opcional, e.g. Bearer xyz): " }, function(token)
+      vim.ui.input({ prompt = "Authorization Token / Header (optional, e.g. Bearer xyz): " }, function(token)
         local headers = {}
         if token and token ~= "" then
           headers["Authorization"] = token
@@ -231,7 +231,7 @@ function M.configure_custom_connection(callback)
           M.active_index = #M.connections
         end
 
-        vim.notify(string.format("[GraphQL Explorer] Conexão '%s' configurada!", name), vim.log.levels.INFO)
+        vim.notify(string.format("[GraphQL Explorer] Connection '%s' configured!", name), vim.log.levels.INFO)
         
         M.download_schema(conn, function(success)
           if success and callback then
@@ -247,14 +247,14 @@ end
 function M.set_active_endpoint(callback)
   local conn = M.get_active()
   if not conn then
-    vim.notify("[GraphQL Explorer] Nenhuma conexão ativa selecionada. Use :GraphQLSelectConnection primeiro.", vim.log.levels.WARN)
+    vim.notify("[GraphQL Explorer] No active connection selected. Use :GraphQLSelectConnection first.", vim.log.levels.WARN)
     return
   end
 
-  vim.ui.input({ prompt = "Alterar Endpoint URL: ", default = conn.url }, function(input)
+  vim.ui.input({ prompt = "Change Endpoint URL: ", default = conn.url }, function(input)
     if input and input ~= "" then
       conn.url = input
-      vim.notify(string.format("[GraphQL Explorer] URL de '%s' atualizada para: %s", conn.name, conn.url), vim.log.levels.INFO)
+      vim.notify(string.format("[GraphQL Explorer] URL of '%s' updated to: %s", conn.name, conn.url), vim.log.levels.INFO)
       M.download_schema(conn, function(success)
         if success and callback then
           callback(conn)
@@ -268,12 +268,12 @@ end
 function M.set_active_auth(callback)
   local conn = M.get_active()
   if not conn then
-    vim.notify("[GraphQL Explorer] Nenhuma conexão ativa selecionada. Use :GraphQLSelectConnection primeiro.", vim.log.levels.WARN)
+    vim.notify("[GraphQL Explorer] No active connection selected. Use :GraphQLSelectConnection first.", vim.log.levels.WARN)
     return
   end
 
   local default_auth = conn.headers and conn.headers["Authorization"] or ""
-  vim.ui.input({ prompt = "Alterar Header Authorization (Bearer <token>): ", default = default_auth }, function(input)
+  vim.ui.input({ prompt = "Change Authorization Header (Bearer <token>): ", default = default_auth }, function(input)
     if input then
       conn.headers = conn.headers or {}
       if input == "" then
@@ -281,7 +281,7 @@ function M.set_active_auth(callback)
       else
         conn.headers["Authorization"] = input
       end
-      vim.notify(string.format("[GraphQL Explorer] Authorization de '%s' atualizado!", conn.name), vim.log.levels.INFO)
+      vim.notify(string.format("[GraphQL Explorer] Authorization for '%s' updated!", conn.name), vim.log.levels.INFO)
       M.download_schema(conn, function(success)
         if success and callback then
           callback(conn)
@@ -295,7 +295,7 @@ end
 function M.download_schema(conn, callback)
   local schema_path = M.schema_dir .. "/" .. conn.name .. ".json"
   
-  vim.notify(string.format("[GraphQL Explorer] Baixando schema para '%s'...", conn.name), vim.log.levels.INFO)
+  vim.notify(string.format("[GraphQL Explorer] Downloading schema for '%s'...", conn.name), vim.log.levels.INFO)
   
   -- Monta o payload JSON
   local payload = vim.fn.json_encode({
@@ -330,7 +330,7 @@ function M.download_schema(conn, callback)
   }, function(obj)
     if obj.code ~= 0 then
       vim.schedule(function()
-        vim.notify(string.format("[GraphQL Explorer] Falha ao baixar schema (Curl code %d):\n%s", obj.code, obj.stderr or ""), vim.log.levels.ERROR)
+        vim.notify(string.format("[GraphQL Explorer] Failed to download schema (Curl code %d):\n%s", obj.code, obj.stderr or ""), vim.log.levels.ERROR)
         if callback then callback(false) end
       end)
       return
@@ -350,8 +350,8 @@ function M.download_schema(conn, callback)
         log_file:close()
       end
       vim.schedule(function()
-        local err_msg = not ok and tostring(data) or "Estrutura 'data.data.__schema' ausente no JSON"
-        vim.notify(string.format("[GraphQL Explorer] Falha no schema: %s", err_msg), vim.log.levels.ERROR)
+          local err_msg = not ok and tostring(data) or "Missing 'data.data.__schema' structure in JSON"
+          vim.notify(string.format("[GraphQL Explorer] Schema failure: %s", err_msg), vim.log.levels.ERROR)
         if callback then callback(false) end
       end)
       return
@@ -363,7 +363,7 @@ function M.download_schema(conn, callback)
       file:write(clean_stdout)
       file:close()
       vim.schedule(function()
-        vim.notify(string.format("[GraphQL Explorer] Schema de '%s' salvo com sucesso!", conn.name), vim.log.levels.INFO)
+        vim.notify(string.format("[GraphQL Explorer] Schema for '%s' saved successfully!", conn.name), vim.log.levels.INFO)
         
         -- Atualiza o arquivo local para o LSP
         require("graphql-explorer.lsp").update_config(conn, schema_path)
@@ -372,7 +372,7 @@ function M.download_schema(conn, callback)
       end)
     else
       vim.schedule(function()
-        vim.notify("[GraphQL Explorer] Não foi possível salvar o arquivo de schema no cache.", vim.log.levels.ERROR)
+        vim.notify("[GraphQL Explorer] Could not save schema file to cache.", vim.log.levels.ERROR)
         if callback then callback(false) end
       end)
     end

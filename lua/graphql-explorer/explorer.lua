@@ -44,13 +44,13 @@ local WELCOME_ART = {
   "         ✨ GRAPHQL EXPLORER ✨          ",
   "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
   "",
-  "  Nenhum schema carregado ativo.",
+  "  No active schema loaded.",
   "",
-  "  Comandos úteis para gerenciar:",
-  "  ▸ :GraphQLSelectConnection (trocar conexão)",
-  "  ▸ :GraphQLDownloadSchema (baixar atual)",
-  "  ▸ :GraphQLSetEndpoint (mudar endpoint url)",
-  "  ▸ :GraphQLSetAuth (mudar token/headers)",
+  "  Useful commands to manage:",
+  "  ▸ :GraphQLSelectConnection (switch connection)",
+  "  ▸ :GraphQLDownloadSchema (download current)",
+  "  ▸ :GraphQLSetEndpoint (change endpoint url)",
+  "  ▸ :GraphQLSetAuth (change token/headers)",
 }
 
 -- Helper para formatar tipos GraphQL recursivamente
@@ -213,7 +213,7 @@ function M.render()
   add_line("     \\ /   \\ /     ")
   add_line("      ●     ●      ")
   add_line(" 🔍 SCHEMA EXPLORER ")
-  add_line(" Endpoint: " .. (conn and conn.name or "Nenhum"))
+  add_line(" Endpoint: " .. (conn and conn.name or "None"))
   add_line(string.rep("━", 30))
   add_line("")
 
@@ -386,7 +386,7 @@ end
 -- Gera lista comentada de possíveis valores para ENUM
 local function generate_sample_enum(t)
   local lines = {}
-  table.insert(lines, string.format("# Valores válidos para o ENUM %s:", t.name))
+  table.insert(lines, string.format("# Valid values for ENUM %s:", t.name))
   for _, val in ipairs(t.enumValues or {}) do
     table.insert(lines, string.format("# - %s", val.name))
   end
@@ -439,7 +439,7 @@ local function generate_sample_query_or_mutation(field, is_mutation)
         table.insert(lines, "    id")
       end
     else
-      table.insert(lines, "    # (tipo de retorno escalar)")
+      table.insert(lines, "    # (scalar return type)")
     end
   else
     table.insert(lines, "    id")
@@ -498,8 +498,8 @@ local function show_details_float(title, info_lines, example_code)
     -- 'y' para copiar o código de exemplo para o clipboard
     vim.keymap.set("n", "y", function()
       vim.fn.setreg("+", example_code)
-      vim.notify("[GraphQL Explorer] Exemplo copiado para a área de transferência!", vim.log.levels.INFO)
-    end, { buffer = buf, silent = true, desc = "Copiar exemplo" })
+      vim.notify("[GraphQL Explorer] Example copied to clipboard!", vim.log.levels.INFO)
+    end, { buffer = buf, silent = true, desc = "Copy example" })
 
     -- 'i' para inserir o código de exemplo no buffer original (de onde o explorer foi aberto)
     vim.keymap.set("n", "i", function()
@@ -523,15 +523,15 @@ local function show_details_float(title, info_lines, example_code)
           vim.api.nvim_set_current_win(wins[1])
           local cursor = vim.api.nvim_win_get_cursor(0)
           vim.api.nvim_buf_set_lines(target_buf, cursor[1], cursor[1], false, lines)
-          vim.notify("[GraphQL Explorer] Exemplo inserido no buffer na linha do cursor!", vim.log.levels.INFO)
+          vim.notify("[GraphQL Explorer] Example inserted in buffer at cursor line!", vim.log.levels.INFO)
         else
           vim.api.nvim_buf_set_lines(target_buf, 0, 0, false, lines)
-          vim.notify("[GraphQL Explorer] Exemplo inserido no início do buffer!", vim.log.levels.INFO)
+          vim.notify("[GraphQL Explorer] Example inserted at the beginning of the buffer!", vim.log.levels.INFO)
         end
       else
-        vim.notify("[GraphQL Explorer] Buffer original não encontrado para inserção.", vim.log.levels.WARN)
+        vim.notify("[GraphQL Explorer] Original buffer not found for insertion.", vim.log.levels.WARN)
       end
-    end, { buffer = buf, silent = true, desc = "Inserir exemplo no buffer" })
+    end, { buffer = buf, silent = true, desc = "Insert example into buffer" })
   end
 end
 
@@ -541,7 +541,7 @@ local function show_type_details(type_name)
   if not t then return end
 
   local lines = {}
-  table.insert(lines, "# Tipo GraphQL: " .. t.name)
+  table.insert(lines, "# GraphQL Type: " .. t.name)
   if t.description and t.description ~= "" then
     table.insert(lines, "> " .. t.description)
   end
@@ -549,21 +549,21 @@ local function show_type_details(type_name)
 
   local example = nil
   if t.kind == "ENUM" then
-    table.insert(lines, "### Valores:")
+    table.insert(lines, "### Values:")
     for _, val in ipairs(t.enumValues or {}) do
       local desc = val.description and (" - " .. val.description) or ""
       table.insert(lines, string.format("* `%s` %s", val.name, desc))
     end
     example = generate_sample_enum(t)
   elseif t.kind == "INPUT_OBJECT" then
-    table.insert(lines, "### Campos de Entrada (Input Fields):")
+    table.insert(lines, "### Input Fields:")
     for _, field in ipairs(t.inputFields or {}) do
       local desc = field.description and (" - " .. field.description) or ""
       table.insert(lines, string.format("* **%s**: `%s` %s", field.name, format_type(field.type), desc))
     end
     example = generate_sample_input_json(type_name)
   else
-    table.insert(lines, "### Campos (Fields):")
+    table.insert(lines, "### Fields:")
     for _, field in ipairs(t.fields or {}) do
       local desc = field.description and (" - " .. field.description) or ""
       table.insert(lines, string.format("* **%s**%s: `%s` %s", field.name, format_args(field.args), format_type(field.type), desc))
@@ -574,8 +574,8 @@ local function show_type_details(type_name)
   if example then
     table.insert(lines, "")
     table.insert(lines, "---")
-    table.insert(lines, "### Exemplo de Possibilidade:")
-    table.insert(lines, "> 💡 Pressione **`y`** para copiar este código de exemplo, ou **`i`** para inseri-lo no arquivo ativo.")
+    table.insert(lines, "### Example Usage:")
+    table.insert(lines, "> 💡 Press **`y`** to copy this example code, or **`i`** to insert it into the active file.")
     table.insert(lines, "")
     local lang = (t.kind == "INPUT_OBJECT") and "json" or "graphql"
     table.insert(lines, "```" .. lang)
@@ -585,7 +585,7 @@ local function show_type_details(type_name)
     table.insert(lines, "```")
   end
 
-  show_details_float("GraphQL Tipo: " .. type_name, lines, example)
+  show_details_float("GraphQL Type: " .. type_name, lines, example)
 end
 
 --- Exibe detalhes de um campo de Query ou Mutation
@@ -597,11 +597,11 @@ local function show_field_details(field, is_mutation)
     table.insert(lines, "> " .. field.description)
   end
   table.insert(lines, "")
-  table.insert(lines, string.format("* **Retorno**: `%s`", format_type(field.type)))
+  table.insert(lines, string.format("* **Return Type**: `%s`", format_type(field.type)))
   
   if field.args and #field.args > 0 then
     table.insert(lines, "")
-    table.insert(lines, "### Argumentos da Função:")
+    table.insert(lines, "### Arguments:")
     for _, arg in ipairs(field.args) do
       local desc = arg.description and (" - " .. arg.description) or ""
       table.insert(lines, string.format("* **%s**: `%s` %s", arg.name, format_type(arg.type), desc))
@@ -612,8 +612,8 @@ local function show_field_details(field, is_mutation)
   if example then
     table.insert(lines, "")
     table.insert(lines, "---")
-    table.insert(lines, "### Exemplo de Requisição:")
-    table.insert(lines, "> 💡 Pressione **`y`** para copiar este exemplo de query, ou **`i`** para inseri-lo no arquivo ativo.")
+    table.insert(lines, "### Example Request:")
+    table.insert(lines, "> 💡 Press **`y`** to copy this query example, or **`i`** to insert it into the active file.")
     table.insert(lines, "")
     table.insert(lines, "```graphql")
     for ex_line in example:gmatch("[^\r\n]+") do
@@ -675,8 +675,8 @@ function M.toggle()
     vim.api.nvim_buf_set_name(M.buf, "GraphQL Schema Explorer")
 
     -- Define keymaps para o explorer
-    vim.keymap.set("n", "<CR>", M.handle_action, { buffer = M.buf, silent = true, desc = "Expandir / Detalhes" })
-    vim.keymap.set("n", "q", M.toggle, { buffer = M.buf, silent = true, desc = "Fechar Explorer" })
+    vim.keymap.set("n", "<CR>", M.handle_action, { buffer = M.buf, silent = true, desc = "Expand / Details" })
+    vim.keymap.set("n", "q", M.toggle, { buffer = M.buf, silent = true, desc = "Close Explorer" })
   end
 
   -- Renderiza

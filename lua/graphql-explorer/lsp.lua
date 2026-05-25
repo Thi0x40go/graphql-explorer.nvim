@@ -38,13 +38,13 @@ function M.update_config(conn, schema_path)
     if ok then
       file:write(json_str)
       file:close()
-      vim.notify(string.format("[GraphQL Explorer] LSP atualizado: graphql.config.json criado em %s", root), vim.log.levels.INFO)
+      vim.notify(string.format("[GraphQL Explorer] LSP updated: graphql.config.json created in %s", root), vim.log.levels.INFO)
       
       -- Tenta notificar o LSP do Neovim para recarregar a configuração se o servidor estiver ativo
       M.reload_graphql_lsp()
     end
   else
-    vim.notify("[GraphQL Explorer] Não foi possível gravar o arquivo graphql.config.json na raiz do projeto.", vim.log.levels.WARN)
+    vim.notify("[GraphQL Explorer] Could not write graphql.config.json file to the project root.", vim.log.levels.WARN)
   end
 end
 
@@ -52,7 +52,7 @@ end
 function M.reload_graphql_lsp()
   local active_clients = vim.lsp.get_clients({ name = "graphql" })
   for _, client in ipairs(active_clients) do
-    vim.notify("[GraphQL Explorer] Reiniciando LSP do GraphQL para carregar novo schema...", vim.log.levels.INFO)
+    vim.notify("[GraphQL Explorer] Restarting GraphQL LSP to load new schema...", vim.log.levels.INFO)
     vim.lsp.buf_detach_client(0, client.id)
     client.stop()
     -- Espera um pouco e reinicia
