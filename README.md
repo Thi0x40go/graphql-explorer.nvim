@@ -2,6 +2,9 @@
 
 [Português (pt-br)](./README.pt-br.md)
 
+> [!WARNING]
+> This plugin is currently in **alpha** stage and may contain bugs.
+
 A Neovim plugin written in Lua to execute GraphQL queries and visually explore schemas (similar to browser extensions), with automatic integration with **`graphql-lsp`**.
 
 ---
